@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Yüklü Toplar Dairesi</title>
+<style>
+  body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }
+  #canvasContainer { position: relative; display: flex; }
+  canvas { border: 1px solid #000; background-color: #e0e0e0; }
+  #controls { margin-left: 20px; padding: 20px; background-color: rgba(255, 255, 255, 0.8); border-radius: 5px; }
+  .charge-control { margin-bottom: 15px; }
+  .charge-control label { display: block; margin-bottom: 5px; }
+  input[type="range"] { width: 150px; }
+  .control-button { padding: 10px 15px; border-radius: 5px; border: none; background-color: #4CAF50; color: white; cursor: pointer; margin-right: 10px; } /* Ortak button stili ve sağ margin */
+  .control-button:hover { background-color: #45a049; }
+</style>
+</head>
+<body>
+
+<div id="canvasContainer">
+  <canvas id="topCanvas" width="500" height="500"></canvas>
+  <div id="controls">
+    <h2>Top Yük Kontrolleri</h2>
+    <div class="charge-control">
+      <label for="charge1">Top 1 Yükü:</label>
+      <input type="range" id="charge1" min="-100" max="100" value="0">
+      <span id="chargeValue1">0</span>
+    </div>
+    <div class="charge-control">
+      <label for="charge2">Top 2 Yükü:</label>
+      <input type="range" id="charge2" min="-100" max="100" value="0">
+      <span id="chargeValue2">0</span>
+    </div>
+    <div class="charge-control">
+      <label for="charge3">Top 3 Yükü:</label>
+      <input type="range" id="charge3" min="-100" max="100" value="0">
+      <span id="chargeValue3">0</span>
+    </div>
+    <div class="charge-control">
+      <label for="charge4">Top 4 Yükü:</label>
+      <input type="range" id="charge4" min="-100" max="100" value="0">
+      <span id="chargeValue4">0</span>
+    </div>
+    <div class="charge-control">
+      <label for="charge5">Top 5 Yükü:</label>
+      <input type="range" id="charge5" min="-100" max="100" value="0">
+      <span id="chargeValue5">0</span>
+    </div>
+    <div class="charge-control">
+      <label for="charge6">Top 6 Yükü:</label>
+      <input type="range" id="charge6" min="-100" max="100" value="0">
+      <span id="chargeValue6">0</span>
+    </div>
+    <div>
+      <button id="resetButton" class="control-button">Topları Resetle</button>
+      <button id="resetChargesButton" class="control-button">Yükleri Sıfırla</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const canvas = document.getElementById('topCanvas');
+  const ctx = canvas.getContext('2d');
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const circleRadius = 200;
+  const ballRadius = 20;
+  const numberOfBalls = 6;
+  const balls = [];
+  const chargeInputs = [];
+  const chargeValueDisplays = [];
+  const forceMultiplier = 0.1;
+  const frictionFactor = 0.95;
+  const resetButton = document.getElementById('resetButton');
+  const resetChargesButton = document.getElementById('resetChargesButton'); // Yükleri Sıfırla butonu eklendi
+
+  for (let i = 1; i <= numberOfBalls; i++) {
+    chargeInputs.push(document.getElementById(`charge${i}`));
+    chargeValueDisplays.push(document.getElementById(`chargeValue${i}`));
+  }
+
+  function getRandomPositionInCircle() {
+    let angle = Math.random() * 2 * Math.PI;
+    let radius = Math.random() * (circleRadius - ballRadius);
+    let x = centerX + radius * Math.cos(angle);
+    let y = centerY + radius * Math.sin(angle);
+    return { x, y };
+  }
+
+  class Ball {
+    constructor(x, y, radius, charge = 0) {
+      this.x = x;
+      this.y = y;
+      this.radius = radius;
+      this.charge = charge;
+      this.velocityX = 0;
+      this.velocityY = 0;
+    }
+
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fillStyle = this.charge > 0 ? 'red' : (this.charge < 0 ? 'blue' : 'green');
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    update() {
+      for (let i = 0; i < balls.length; i++) {
+        if (balls[i] !== this) {
+          let dx = this.x - balls[i].x;
+          let dy = this.y - balls[i].y;
+          let distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < this.radius + balls[i].radius) {
+              let overlap = (this.radius + balls[i].radius) - distance;
+              let angle = Math.atan2(dy, dx);
+              this.x += overlap / 2 * Math.cos(angle);
+              this.y += overlap / 2 * Math.sin(angle);
+              balls[i].x -= overlap / 2 * Math.cos(angle);
+              balls[i].y -= overlap / 2 * Math.sin(angle);
+              distance = this.radius + balls[i].radius;
+          }
+
+          let forceMagnitude = 0;
+          if (distance > 0) {
+            forceMagnitude = (this.charge * balls[i].charge) / (distance * distance);
+          }
+
+          let forceDirectionX = dx / distance;
+          let forceDirectionY = dy / distance;
+
+          this.velocityX += forceMagnitude * forceDirectionX * forceMultiplier;
+          this.velocityY += forceMagnitude * forceDirectionY * forceMultiplier;
+        }
+      }
+
+      this.velocityX *= frictionFactor;
+      this.velocityY *= frictionFactor;
+
+      this.x += this.velocityX;
+      this.y += this.velocityY;
+
+      let distFromCenter = Math.sqrt((this.x - centerX) ** 2 + (this.y - centerY) ** 2);
+      if (distFromCenter + this.radius > circleRadius) {
+        let angleToCenter = Math.atan2(this.y - centerY, this.x - centerX);
+        this.x = centerX + (circleRadius - this.radius) * Math.cos(angleToCenter);
+        this.y = centerY + (circleRadius - this.radius) * Math.sin(angleToCenter);
+        let normalX = (this.x - centerX) / distFromCenter;
+        let normalY = (this.y - centerY) / distFromCenter;
+        let dotProduct = this.velocityX * normalX + this.velocityY * normalY;
+        this.velocityX -= 2 * dotProduct * normalX;
+        this.velocityY -= 2 * dotProduct * normalY;
+      }
+    }
+  }
+
+  function resetBalls() {
+    balls.forEach(ball => {
+      let pos = getRandomPositionInCircle();
+      ball.x = pos.x;
+      ball.y = pos.y;
+      ball.velocityX = 0;
+      ball.velocityY = 0;
+    });
+  }
+
+  function resetCharges() { // Yükleri sıfırlama fonksiyonu
+    balls.forEach((ball, index) => {
+      ball.charge = 0;
+      chargeInputs[index].value = 0; // Range input değerini sıfırla
+      chargeValueDisplays[index].textContent = '0'; // Görüntülenen değeri sıfırla
+    });
+  }
+
+  resetButton.addEventListener('click', resetBalls);
+  resetChargesButton.addEventListener('click', resetCharges); // Yükleri Sıfırla butonuna olay dinleyicisi eklendi
+
+
+  for (let i = 0; i < numberOfBalls; i++) {
+    let pos = getRandomPositionInCircle();
+    balls.push(new Ball(pos.x, pos.y, ballRadius));
+  }
+
+  chargeInputs.forEach((input, index) => {
+    input.addEventListener('input', function() {
+      balls[index].charge = parseInt(this.value);
+      chargeValueDisplays[index].textContent = this.value;
+    });
+  });
+
+  function drawCircle() {
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, circleRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = 'black';
+    ctx.stroke();
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawCircle();
+    balls.forEach(ball => {
+      ball.update();
+      ball.draw();
+    });
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+</script>
+
+</body>
+</html>
